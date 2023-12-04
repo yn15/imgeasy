@@ -7,6 +7,10 @@ import pandas as pd
 import gc
 import torch
 
+import time
+
+import threading
+
 
 def img_scale(image_url, scale_data):
     try:
@@ -35,45 +39,68 @@ def img_scale(image_url, scale_data):
         return False
 
 
-def is_text_in_image(img_sc, reader):
-    try:
-        result = reader.readtext(img_sc, detail=0)
-        if not result:
-            return False
-        else:
-            return True
-    except Exception as e:
-        print('Image OCR error : i')
-        print(e)
-        gc.collect()
-        torch.cuda.empty_cache()
-        result = reader.readtext(img_sc, detail=0)
-        if not result:
-            return False
-        else:
-            return True
+def is_text_in_image(data_arg, reader, cnt):
+    for img_sc in data_arg:
+        print(cnt)
+        cnt += 1
+        try:
+            result = reader.readtext(img_sc, detail=0)
+            if not result:
+                continue
+                # return False
+            else:
+                continue
+                # return True
+        except Exception as e:
+            print('Image OCR error')
+            print(e)
+            result = reader.readtext(img_sc, detail=0)
+            if not result:
+                continue
+                # return False
+            else:
+                continue
+                # return True
+    gc.collect()
+    torch.cuda.empty_cache()
 
 
 def run(file_name, col_name, save_file, run_type, label7):
+    # for i in range(0, 10000, 1000):
+    #     print(i)
+
+    # list = [0, 1, 2, 3, 4]
+    # print(list[0:7])
+
     df1 = pd.read_excel(file_name, engine='xlrd')
-    data = df1.loc[1:]['목록 이미지*'].to_list()
+    data = df1.loc[1:1000]['목록 이미지*'].to_list()
 
     scale_data = []
 
-    for i in range(0, 1):
+    for i in range(0, len(data)):
         img_scale(data[i], scale_data)
 
     print('scale end')
 
-    reader = easyocr.Reader(['ko', 'en'], gpu=run_type)  # this needs to run only once to load the model into memory
+      # this needs to run only once to load the model into memory
 
-    df2 = pd.DataFrame()
 
-    for i in range(0, 1):
-        print(i)
-        if is_text_in_image(scale_data[i], reader):
-            continue
-            # df2 = pd.concat([df2, df1.loc[[i]]])
+    # df2 = pd.DataFrame()
+
+    for i in range(0, len(scale_data), 100):
+        reader = easyocr.Reader(['ko', 'en'], gpu=run_type)
+        th = threading.Thread(target=is_text_in_image, args=(scale_data[i:i + 100], reader, i))
+        th.start()
+        th.join()
+        time.sleep(30)
+        # print(i)
+        # if i % 1000 == 0:
+        #     gc.collect()
+        #     torch.cuda.empty_cache()
+        #     time.sleep(30)
+        # if is_text_in_image(scale_data[i:i+1000], reader):
+        #     continue
+        # df2 = pd.concat([df2, df1.loc[[i]]])
 
 
 run('C:/Users/ehdwn/PycharmProjects/imgeasy/cou.xls',
